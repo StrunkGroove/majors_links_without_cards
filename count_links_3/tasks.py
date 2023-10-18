@@ -23,10 +23,10 @@ def calculate_spread_with_fee(ad_price_first, best_price, ad_price_second):
 
 
 def custom_round_func(price):
-    new_price = round(price, 5)
-    if new_price == 0:
+    price = round(price, 5)
+    if price == 0:
         return '0.000...'
-    return '{:.5f}'.format(price)
+    return price
 
 
 def get_data_from_redis(key):
@@ -48,24 +48,32 @@ def get_crypto_info_dict():
 
 
 def get_exchange_info_dict():
-    exchange_info_objects = LinksExchangeInfo.objects.all()
+    exchange_info_objects = LinksExchangeInfo.objects.all().values(
+        'exchange_id', 
+        'exchange_name', 
+        'info_age', 
+        'info_star',
+        'info_verification', 
+        'info_registration',
+    )
 
     exchange_info_dict = {}
     for obj in exchange_info_objects:
-        exchange_info_dict[obj.exchange_id] = {
-            'exchange_id': obj.exchange_id,
-            'exchange_name': obj.exchange_name,
-            'info_reverse': obj.info_reverse,
-            'info_age': obj.info_age,
-            'info_star': obj.info_star,
-            'info_verification': obj.info_verification,
-            'info_registration': obj.info_registration,
-            'addition_floating': obj.addition_floating,
-            'addition_verifying': obj.addition_verifying,
-            'addition_manual': obj.addition_manual,
-            'addition_percent': obj.addition_percent,
-            'addition_otherin': obj.addition_otherin,
-            'addition_reg': obj.addition_reg,
+        exchange_info_dict[obj['exchange_id']] = {
+            'exchange_id': obj['exchange_id'],
+            'exchange_name': obj['exchange_name'],
+            'info_age': obj['info_age'],
+            'info_star': obj['info_star'],
+            'info_verification': obj['info_verification'],
+            'info_registration': obj['info_registration'],
+            
+            # 'info_reverse': obj['info_reverse'],
+            # 'addition_floating': obj['addition_floating'],
+            # 'addition_verifying': obj['addition_verifying'],
+            # 'addition_manual': obj['addition_manual'],
+            # 'addition_percent': obj['addition_percent'],
+            # 'addition_otherin': obj['addition_otherin'],
+            # 'addition_reg': obj['addition_reg'],
         }
     return exchange_info_dict
 
@@ -137,24 +145,26 @@ def count_link_3_actions(dict, best_change_data, data, exchange):
                 record = {
                     'exchange': exchange,
                     'ad_price_first': custom_round_func(real_price_first),
-                    'full_price_first': "{:.12f}".format(real_price_first),
+                    'full_price_first': '{:10f}'.format(real_price_first),
+                    'qty_first': ad_first['bid_price'] * real_price_first,
                     'ad_give_first': ad_give_first,
                     'ad_get_first': crypto_info_dict[best_get_number],
 
                     'ad_price_second': custom_round_func(real_price_second),
-                    'full_price_second': "{:.12f}".format(real_price_second),
+                    'full_price_second': '{:10f}'.format(real_price_second),
+                    'qty_second': ad_second['ask_qty'] * real_price_first,
                     'ad_give_second': crypto_info_dict[best_give_number],
                     'ad_get_second': ad_get_second,
 
                     'best_price': custom_round_func(best_price),
-                    'best_full_price': round(best_price, 11),
+                    'best_full_price': '{:10f}'.format(best_price),
                     'spread_with_fee': spread_with_fee,
 
                     'exchange_info': exchange_info_dict[exchange_id],
                     'available': best_row['available'],
                     'negative_reviews': best_row['negative_reviews'],
                     'positive_reviews': best_row['positive_reviews'],
-                    'lim_min': best_row['lim_min'] * real_price_first,
+                    'lim_min': round(best_row['lim_min'] * real_price_first, 3),
                     'hash': hashed,
                 }
                 dict[ad_give_first].append(record)

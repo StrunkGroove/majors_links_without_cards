@@ -1,120 +1,90 @@
-import requests
+import aiohttp
+import asyncio
 
 from myproject.celery import app
-from base_app.info import key_kucoin, crypto_list, accept_list_kucoin, rc
+from base_app.info import key_kucoin, crypto_list, ban_list_kucoin
 from django.core.cache import cache
 
 
-def get_data():
-    url = "https://api.kucoin.com/api/v1/market/allTickers"
-    response = requests.get(url)
-    data = response.json()
-    data = data['data']['ticker']
-    return data
+async def fetch_data(session, url):
+    async with session.get(url) as response:
+        status_code = response.status
 
+        if status_code == 200:
+            res = await response.json()
+            return res['data']['ticker']
+
+        else:
+            print(status_code)
+
+async def fetch_all():
+    urls = [
+        'https://api.kucoin.com/api/v1/market/allTickers',
+    ]
+
+    async with aiohttp.ClientSession() as session:
+        data = await asyncio.gather(
+            fetch_data(session, urls[0])
+        )
+    return data[0]
 
 def del_fake(data):
     indices_to_remove = []
     
     for i in range(len(data) - 1, -1, -1):
         ad = data[i]
-        symbol = ad['symbol']
-        if symbol not in accept_list_kucoin:
+        symbol = ad['symbol'].replace('-', '')
+        if symbol in ban_list_kucoin:
             indices_to_remove.append(i)
 
     for i in indices_to_remove:
         data.pop(i)
 
+def create_symbols():
+    symbols = {}
+    for i in crypto_list:
+        for j in crypto_list:
+            symbol = i + j
+            symbols[symbol] = {
+                'first': i,
+                'second': j,
+            }
+    return symbols
 
-def create_all_pair(token_dict):
-    for first_token in crypto_list:
-        for second_token in crypto_list:
-            if first_token != second_token:
-                token = first_token + second_token
-                token_dict[token] = {
-                    'first':first_token,
-                    'second':second_token,
-                    'exchange':'kucoin',
-                }
-    return token_dict
+def merge(data, key):
+    symbols = create_symbols()
+    merge_list = []
+    for i in range(len(data)):
+        ad = data[i]
+        symbol = ad['symbol'].replace('-', '')
+        symbol = symbols.get(symbol)
+        if not symbol: continue
 
+        price = float(ad['last'])
+        bid_price = float(ad['buy'])
+        ask_price = float(ad['sell'])
+        if price == 0 or bid_price == 0 or ask_price == 0: continue
 
-def append_price(data, token_dict):
-    for token in token_dict.copy():
-        for ad in data:
-            symbol = ad['symbol'].replace('-', '')
+        merge_list.append({
+            'first': symbol['first'],
+            'second': symbol['second'],
+            'price': price,
+            'bid_price': bid_price,
+            'ask_price': ask_price,
+            'bid_qty': float(ad['volValue']) / 24,
+            'ask_qty': float(ad['volValue']) / 24,
+            'ex': key,
+        })
+    return merge_list
 
-            if token != symbol:
-                continue
-
-            price = ad['last']
-            bid_price = ad['buy']
-            ask_price = ad['sell']
-            bid_qty = 0
-            ask_qty = 0
-
-            price = float(price)
-            bid_price = float(bid_price)
-            ask_price = float(ask_price)
-            bid_qty = float(bid_qty)
-            ask_qty = float(ask_qty)
-            
-            token_dict[symbol]['price'] = price
-            token_dict[symbol]['real_price'] = price
-            token_dict[symbol]['bid_price'] = bid_price
-            token_dict[symbol]['ask_price'] = ask_price
-            token_dict[symbol]['bid_qty'] = bid_qty
-            token_dict[symbol]['ask_qty'] = ask_qty
-            token_dict[symbol]['real_ask_price'] = ask_price
-            token_dict[symbol]['real_bid_price'] = bid_price
-            break
-        else:
-            del token_dict[token]
-    return token_dict
-
-
-def duplicate(token_dict):
-    for token in token_dict.copy():
-        ad = token_dict[token]
-
-        first = ad['first']
-        second = ad['second']
-        price = ad['price']
-        bid_price = ad['bid_price']
-        ask_price = ad['ask_price']
-        bid_qty = ad['bid_qty']
-        ask_qty = ad['ask_qty']
-        exchange = ad['exchange']
-
-        key = token + '_new'
-        token_dict[key] = {
-            'first': second,
-            'second': first,
-            'price': 1/price,
-            'real_price': price,
-            'ask_price': 1/ask_price,
-            'bid_price': 1/bid_price,
-            'real_ask_price': ask_price,
-            'real_bid_price': bid_price,
-            'bid_qty': bid_qty,
-            'ask_qty': ask_qty,
-            'exchange': exchange,
-        }
-
-
-def save_db(token_dict):
+def save(data, key):
     time_cash = 60
-    cache.set(key_kucoin, token_dict, time_cash)
-
+    cache.set(key, data, time_cash)
 
 @app.task
 def main():
-    token_dict = {}
-
-    data = get_data()
+    data = asyncio.run(fetch_all())
     del_fake(data)
-    create_all_pair(token_dict)
-    append_price(data, token_dict)
-    duplicate(token_dict)
-    save_db(token_dict)
-    return len(token_dict)
+    data = merge(data, key_kucoin)
+    save(data, key_kucoin)
+    return len(data)

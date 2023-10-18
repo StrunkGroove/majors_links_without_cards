@@ -55,32 +55,32 @@ app.conf.beat_schedule = {
     },
 
 
-    'count-links-3-task-binance': {
-        'task': 'count_links_3.tasks.binance',
-        'schedule': 20.0,
-    },
-    'count-links-3-task-bybit': {
-        'task': 'count_links_3.tasks.bybit',
-        'schedule': 20.0,
-    },
-    'count-links-3-task-kucoin': {
-        'task': 'count_links_3.tasks.kucoin',
-        'schedule': 20.0,
-    },
-    'count-links-3-task-huobi': {
-        'task': 'count_links_3.tasks.huobi',
-        'schedule': 20.0,
-    },
-    'count-links-3-task-okx': {
-        'task': 'count_links_3.tasks.okx',
-        'schedule': 20.0,
-    },
+    # 'count-links-3-task-binance': {
+    #     'task': 'count_links_3.tasks.binance',
+    #     'schedule': 20.0,
+    # },
+    # 'count-links-3-task-bybit': {
+    #     'task': 'count_links_3.tasks.bybit',
+    #     'schedule': 20.0,
+    # },
+    # 'count-links-3-task-kucoin': {
+    #     'task': 'count_links_3.tasks.kucoin',
+    #     'schedule': 20.0,
+    # },
+    # 'count-links-3-task-huobi': {
+    #     'task': 'count_links_3.tasks.huobi',
+    #     'schedule': 20.0,
+    # },
+    # 'count-links-3-task-okx': {
+    #     'task': 'count_links_3.tasks.okx',
+    #     'schedule': 20.0,
+    # },
 
 
-    'pars-best-zip-task': {
-        'task': 'best_change_zip.tasks.main',
-        'schedule': 30.0,
-    },
+    # 'pars-best-zip-task': {
+    #     'task': 'best_change_zip.tasks.main',
+    #     'schedule': 30.0,
+    # },
     # 'update-best-exchange-info-task': {
     #     'task': 'best_change_parsing.tasks.main',
     #     'schedule': 300.0,

@@ -20,8 +20,12 @@ def unique_keys(all_ex):
 
 
 def calculate_spread(price_first, price_second):
-    spread = ((price_first * price_second) - 1) * 100
+    if price_first == 0: return 0
+    fee = 0.15
+    spread = (((price_second - price_first) / price_first) - 1) * 100
+    spread = spread - fee
     return spread
+    return round(spread, 2)
 
 
 def custom_round_func(price):
@@ -31,85 +35,171 @@ def custom_round_func(price):
     return price
 
 
-def get_data_from_redis(all_data, all_ex, key, ex):
-    data = cache.get(key)
-    if not data:
-        return f'Data is None {ex}'
-    all_data[ex] = data
-    all_ex.append(ex)
+# def count(ex_first, ex_second, data_first, data_second, dict, first_key, second_key):
+#     def create_hash():
+#         for_hash = (
+#             f'{ex_first}-'
+#             f'-{ex_second}-'
+#             f'-{give_first}-'
+#             f'-{get_first}'
+#         )
+#         hash_object = hashlib.sha256()
+#         hash_object.update(for_hash.encode())
+#         hashed = hash_object.hexdigest()
+#         return hashed
 
+#     def create_record():
+#         return {
+#             'exchange_first': ex_first,
+#             'exchange_second': ex_second,
+
+#             'price_first': custom_round_func(price_first),
+#             'price_second': custom_round_func(price_second),
+
+#             'full_price_first': '{:10f}'.format(price_first),
+#             'full_price_second': '{:10f}'.format(price_second),
+
+#             'base': base_first,
+#             'quote': quote_first,
+            
+#             'bid_qty_first': bid_qty_first,
+#             'ask_qty_first': ask_qty_first,
+#             'bid_qty_second': bid_qty_second,
+#             'ask_qty_second': ask_qty_second,
+
+#             # 'give_second': base_second,
+#             # 'get_second': quote_second,
+
+#             'spread': spread,
+#             'hash': create_hash(),
+#         }
+
+#     n = 0
+#     key = f'{ex_first}--{ex_second}'
+    
+#     for ad_first in data_first:
+#         give_first = ad_first['first']
+#         get_first = ad_first['second']
+
+#         base_first = None
+#         if give_first in base_token_2: 
+#             base_first = give_first
+#             quote_first = get_first
+#         elif get_first in base_token_2: 
+#             base_first = get_first
+#             quote_first = give_first
+#         elif base_first is None:
+#             continue
+
+#         for ad_second in data_second:
+#             give_second = ad_second['first']
+#             get_second = ad_second['second']
+
+#             base_second = None
+#             if base_first == give_second:
+#                 base_second = give_second
+#                 quote_second = get_second
+#                 same = True
+#             elif base_first == get_second:
+#                 base_second = get_second
+#                 quote_second = give_second
+#                 same = False
+#             elif base_second is None:
+#                 continue
+
+#             if quote_first != quote_second:
+#                 continue
+
+#             price_first = ad_first[first_key]
+#             bid_qty_first = ad_first['bid_qty']
+#             ask_qty_first = ad_first['ask_qty']
+
+#             price_second = ad_second[second_key]
+#             bid_qty_second = ad_second['bid_qty']
+#             ask_qty_second = ad_second['ask_qty']
+
+#             if same == True:
+#                 spread = calculate_spread(price_first, price_second)
+#                 record = create_record()
+#                 if spread < 0.2: continue
+#             elif same == False:
+#                 if price_second == 0:
+#                     continue
+
+#                 spread = calculate_spread(price_first, 1/price_second)
+#                 record = create_record()
+#                 if spread < 0.2: continue
+#             dict[key].append(record)
+#             n += 1
+#     return n
 
 def count(ex_first, ex_second, data_first, data_second, dict, first_key, second_key):
+    def create_hash():
+        for_hash = (
+            f'{ex_first}-'
+            f'-{ex_second}-'
+            f'-{base_first}-'
+            f'-{quote_first}'
+        )
+        hash_object = hashlib.sha256()
+        hash_object.update(for_hash.encode())
+        hashed = hash_object.hexdigest()
+        return hashed
+
+    def create_record():
+        return {
+            'exchange_first': ex_first,
+            'exchange_second': ex_second,
+
+            'price_first': custom_round_func(price_first),
+            'price_second': custom_round_func(price_second),
+
+            'full_price_first': '{:10f}'.format(price_first),
+            'full_price_second': '{:10f}'.format(price_second),
+
+            # 'base': base_first,
+            # 'quote': quote_first,
+            
+            'bid_qty_first': bid_qty_first,
+            'ask_qty_first': ask_qty_first,
+            'bid_qty_second': bid_qty_second,
+            'ask_qty_second': ask_qty_second,
+
+            'give_first': base_first,
+            'get_first': quote_first,
+            'give_second': base_second,
+            'get_second': quote_second,
+
+            'spread': spread,
+            'hash': create_hash(),
+        }
+
     n = 0
     key = f'{ex_first}--{ex_second}'
-    for key_first, ad_first in data_first.items():
-        ad_give_first = ad_first['first']
-        if ad_give_first not in base_token_2:
-            continue
-        ad_get_first = ad_first['second']
-        bid_qty_first = ad_first['bid_qty']
-        ask_qty_first = ad_first['ask_qty']
-        price_first = ad_first[first_key]
-        real_price_first = ad_first[f'real_{first_key}']
+    
+    for ad_first in data_first:
+        base_first = ad_first['first']
+        quote_first = ad_first['second']
 
-        for key_second, ad_second in data_second.items():
-            ad_give_second = ad_second['first']
-            ad_get_second = ad_second['second']
-            if ad_get_first != ad_give_second or ad_get_second != ad_give_first:
+        for ad_second in data_second:
+            base_second = ad_second['first']
+            quote_second = ad_second['second']
+
+            if base_first != base_second \
+            or quote_first != quote_second:
                 continue
+
+            price_first = ad_first[first_key]
+            bid_qty_first = ad_first['bid_qty']
+            ask_qty_first = ad_first['ask_qty']
+
             price_second = ad_second[second_key]
             bid_qty_second = ad_second['bid_qty']
             ask_qty_second = ad_second['ask_qty']
-            real_price_second = ad_second[f'real_{second_key}']
 
             spread = calculate_spread(price_first, price_second)
-
-            spread = round(spread, 2)
-
-            if spread < 0.2:
-                continue
-
-            for_hash = (
-                f'{ex_first}-'
-                f'-{ex_second}-'
-                f'-{ad_give_first}-'
-                f'-{ad_get_first}'
-            )
-            hash_object = hashlib.sha256()
-            hash_object.update(for_hash.encode())
-            hashed = hash_object.hexdigest()
-
-            record = {
-                'exchange_first': ex_first,
-                'price_first': custom_round_func(real_price_first),
-                'full_price_first': '{:.12f}'.format(real_price_first),
-                'give_first': ad_give_first,
-                'get_first': ad_get_first,
-                'bid_qty_first': bid_qty_first,
-                'ask_qty_first': ask_qty_first,
-
-                'exchange_second': ex_second,
-                'price_second': custom_round_func(real_price_second),
-                'full_price_second': '{:.12f}'.format(real_price_second),
-                'give_second': ad_give_second,
-                'get_second': ad_get_second,
-                'bid_qty_second': bid_qty_second,
-                'ask_qty_second': ask_qty_second,
-
-                'spread': spread,
-                'hash': hashed,
-            }
-
-            if ex_first == 'pancake':
-                record['base_address'] = ad_first['base_address']
-                record['quoto_address'] = ad_first['quoto_address']
-
-            elif ex_second == 'pancake':
-                record['base_address'] = ad_second['base_address']
-                record['quoto_address'] = ad_second['quoto_address']
-
-
-            dict[key].append(record)
+            if spread < 0.2: continue
+            dict[key].append(create_record())
             n += 1
     return n
 
@@ -132,51 +222,42 @@ def save_db(data, type_trade):
 
 @app.task
 def main():
-    all_data = {}
-    all_exchanges = []
-    get_data_from_redis(all_data, all_exchanges, key_binance, 'binance')
-    get_data_from_redis(all_data, all_exchanges, key_bybit, 'bybit')
-    get_data_from_redis(all_data, all_exchanges, key_okx, 'okx')
-    get_data_from_redis(all_data, all_exchanges, key_kucoin, 'kucoin')
-    get_data_from_redis(all_data, all_exchanges, key_huobi, 'huobi')
-    # get_data_from_redis(all_data, all_exchanges, key_mexc, 'mexc')
-    get_data_from_redis(all_data, all_exchanges, key_bitget, 'bitget')
-    get_data_from_redis(all_data, all_exchanges, key_pancake, 'pancake')
-    get_data_from_redis(all_data, all_exchanges, key_gateio, 'gateio')
+    def count_links(type, key_first, key_second):
+        dict = unique_keys(exchanges)
+        n = 0
+        for ex_first, data_first in data.items():
+            for ex_second, data_second in data.items():
+                n += count(ex_first, ex_second, data_first, data_second, dict, key_first, key_second)
+        save_db(dict, type)
+        return n
 
-    if len(all_data) == 0:
+    def get_data(all_data, exchanges, key):
+        data = cache.get(key)
+        if not data:
+            return f'Data is None {key}'
+        all_data[key] = data
+        exchanges.append(key)
+
+    data = {}
+    exchanges = []
+    get_data(data, exchanges, key_binance)
+    get_data(data, exchanges, key_bybit)
+    get_data(data, exchanges, key_okx)
+    get_data(data, exchanges, key_kucoin)
+    get_data(data, exchanges, key_huobi)
+    get_data(data, exchanges, key_bitget)
+    get_data(data, exchanges, key_pancake)
+    get_data(data, exchanges, key_gateio)
+
+    if len(data) == 0:
         return 'All data is None!'
 
-    bid_key = 'bid_price'
-    ask_key = 'ask_price'
-
+    bid = 'bid_price'
+    ask = 'ask_price'
+    
     n = 0
-    dict_bid_ask = unique_keys(all_exchanges)
-    for ex_first, data_first in all_data.items():
-        for ex_second, data_second in all_data.items():
-            n += count(ex_first, ex_second, data_first, data_second, dict_bid_ask, bid_key, ask_key)
-
-    # n = 0
-    dict_bid_bid = unique_keys(all_exchanges)
-    for ex_first, data_first in all_data.items():
-        for ex_second, data_second in all_data.items():
-            n += count(ex_first, ex_second, data_first, data_second, dict_bid_bid, bid_key, bid_key)
-
-    # n = 0
-    dict_ask_ask = unique_keys(all_exchanges)
-    for ex_first, data_first in all_data.items():
-        for ex_second, data_second in all_data.items():
-            n += count(ex_first, ex_second, data_first, data_second, dict_ask_ask, ask_key, ask_key)
-
-    # n = 0
-    dict_ask_bid = unique_keys(all_exchanges)
-    for ex_first, data_first in all_data.items():
-        for ex_second, data_second in all_data.items():
-            n += count(ex_first, ex_second, data_first, data_second, dict_ask_bid, ask_key, bid_key)
-
-    save_db(dict_bid_ask, 'SELL-BUY')
-    save_db(dict_bid_bid, 'SELL-SELL')
-    save_db(dict_ask_ask, 'BUY-BUY')
-    save_db(dict_ask_bid, 'BUY-SELL')
-
+    n += count_links('SELL-BUY', bid, ask)
+    n += count_links('SELL-SELL', bid, bid)
+    n += count_links('BUY-BUY', ask, ask)
+    n += count_links('BUY-SELL', ask, bid)
     return n
